@@ -1,0 +1,7 @@
+,periodical_title,review_type,review_author,review_pub_date,reviewed_book_title,reviewed_book_author,review_file_path
+0,New Yorker,multi-work,Unsigned,04/11/1977,multiple,multiple,book-reviews/txt/new-yorker-briefly-noted.txt
+1,The Atlantic,single-work,Richard Todd,05/01/1973,Breakfast of Champions,Kurt Vonnegut,book-reviews/txt/atlantic-breakfast-of-champions.txt
+2,The New York Times,single-work,Nora Sayre,10/05/1969,The Queen Was in the Garbage,Lila Karp,book-reviews/txt/nyt-queen-was-in-the-garbage.txt
+3,The New York Times,single-work,Nora Sayre,08/30/1970,Enid Bagnold's Autobiography,Enid Bagnold,book-reviews/txt/nyt-enid-autobiography.txt
+4,The New York Times,single-work,Nora Sayre,05/13/1973,Breakfast of Champions,Kurt Vonnegut,book-reviews/txt/nyt-breakfast-of-champions.txt
+5,Computer Gaming World,single-work,Charles Ardai,02/01/1994,Sam & Max Hit the Road,LucasArts,book-reviews/txt/sam-max-hit-the-road.txt

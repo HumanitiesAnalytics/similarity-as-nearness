@@ -1,0 +1,143 @@
+---
+title: "Compare Distances"
+format:
+  html:
+    theme: simple
+    echo: true
+    code-fold: false
+    code-summary: "Click to View Source Code"
+    self-contained: true
+execute:
+  fig-width: 8
+  fig-height: 5
+page-layout: full
+toc: true
+---
+
+```{r}
+library(tidyverse)
+library(philentropy)
+```
+
+```{r}
+excerpts_full <- read_csv('book-reviews/csv/excerpt_review_features.csv')
+excerpts_no_hapax <- read_csv('book-reviews/csv/excerpt_review_features_no_hapax.csv')
+
+reading_level <- excerpts_full %>% select(syllables, sentence_len) 
+
+
+reading_level_distances <- philentropy::distance(reading_level, method='euclidean')
+```
+
+```{r}
+# visualize 
+reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Candidate 1", "Candidate 2", "Candidate 3"))
+reading_level_plot_root <- reading_level_plot %>% filter(text == "Root Excerpt")
+reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Excerpt")
+
+ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text)) + 
+  geom_point() + 
+  labs(title = "Book Review Similarity (Excerpts)\n", 
+       x = "Average syllables per word", 
+       y = "Average sentence length", 
+       color = "Excerpt\n") +
+  geom_point(aes(x=reading_level_plot_root$syllables, y=reading_level_plot_root$sentence_len), color='black', shape='*', size=10) + 
+    annotate("text", x=reading_level_plot_root$syllables + 0.02, y=reading_level_plot_root$sentence_len, label = "Root Excerpt", color = "black", size = 3.5, fontface = "bold")
+
+```
+
+```{r}
+# Define the vectors
+A <- c(3, 0)
+B <- c(3, 4)
+
+M <- rbind(A, B)
+
+# Calculate dot product
+dot_product <- sum(A * B)
+
+# Calculate magnitudes
+magnitude_A <- sqrt(sum(A^2))
+magnitude_B <- sqrt(sum(B^2))
+
+# Calculate cosine similarity
+cosine_similarity <- dot_product / (magnitude_A * magnitude_B)
+
+print(cosine_similarity)
+print(philentropy::distance(M, method='cosine'))
+
+
+
+
+# visualize 
+#ggplot(train_test, aes(x=a, y=b, color=c)) + 
+#  geom_point() + 
+#  labs(title = "Identifying time travel movie fans\n", 
+#       x = "Used the word 'paradox' X times", 
+#       y = "Number of math classes taken in college", 
+#       color = "Likes time travel movies\n")
+
+```
+
+## Leave-One-Out Classification with KNN 
+
+```{r loocv}
+
+loocv_data <- train_test %>% select(a,b)
+loocv_labels <- train_test %>% pull(c)
+
+# LOOCV cross-validation 
+k_value <- 5
+knn_predictions <- knn.cv(train = loocv_data,
+                          cl = loocv_labels,
+                          k = k_value, 
+                          use.all= TRUE)
+
+results <- data.frame(predicted=knn_predictions, actual=loocv_labels)
+results <- results %>% mutate(correct=predicted==actual) %>% 
+  mutate(correct=as.integer(correct))
+
+loo_accuracy <- sum(results$correct)/ length(results$correct)
+print(loo_accuracy)
+```
+
+## Train a Model, Test on Disputed  
+
+```{r disputed}
+
+
+
+
+# test on novel data 
+one_row <- data.frame(a=c(11), b=c(16))
+
+knn_predictions_one_row <- knn(train = loocv_data,
+                       test = one_row,
+                          cl = loocv_labels,
+                          k = k_value)
+print(knn_predictions_one_row)
+```
+
+## Train model on training set data, predict label for test set data
+
+```{r train_test} 
+
+# split into training and test set 
+train <- head(train_test, 65) %>% select(a, b)
+test <- tail(train_test, 15) %>% select(a, b)
+
+train_labels <- head(train_test, 65) %>% select(c) %>% rename(actual=c) %>% mutate(actual=factor(actual)) %>% pull(actual)
+test_labels <- tail(train_test, 15) %>% select(c) %>% rename(actual=c) %>% mutate(actual=factor(actual)) %>% pull(actual)
+
+k_value <-5
+knn_predictions <- knn(train = train,
+                       test = test,
+                       cl = train_labels,
+                       k = k_value)
+
+results <- data.frame(predicted=knn_predictions, actual=test_labels)
+results <- results %>% mutate(correct=predicted==actual) %>% mutate(correct=as.integer(correct))
+
+print(sum(results$correct)/ length(results$correct))
+```
+

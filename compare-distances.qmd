@@ -7,6 +7,10 @@ format:
     code-fold: false
     code-summary: "Click to View Source Code"
     self-contained: true
+knitr:
+    opts_chunk:
+      warning: false
+      message: false
 execute:
   fig-width: 10
   fig-height: 7
@@ -17,95 +21,176 @@ toc: true
 ```{r}
 library(tidyverse)
 library(philentropy)
+library(stringr)
+library(igraph)
+library(ggraph)
+library(knitr)
+
+set.seed(1122)
 ```
 
 ```{r}
+
+# load review metadata 
 review_meta <- read_csv('review_metadata.csv')
 
-excerpts_full <- read_csv('book-reviews/csv/excerpt_review_features.csv')
-excerpts_no_hapax <- read_csv('book-reviews/csv/excerpt_review_features_no_hapax.csv')
+# map meta to excerpts
+review_meta$excerpt <- c(NA, "Candidate 1", "Candidate 2", NA, "Root Text", "Candidate 3" )
 
+excerpt_meta <- rbind(review_meta[5,], review_meta[2,], review_meta[3,], review_meta[6,])
+
+# load reviews 
 reviews_full <- read_csv('book-reviews/csv/review_features.csv')
 reviews_no_hapax <- read_csv('book-reviews/csv/review_features_no_hapax.csv')
 
+# load excerpts
+excerpts_full <- read_csv('book-reviews/csv/excerpt_review_features.csv')
+excerpts_no_hapax <- read_csv('book-reviews/csv/excerpt_review_features_no_hapax.csv')
+
+# prepare 2-dimensions example (using excerpts)
 reading_level <- excerpts_full %>% select(syllables, sentence_len) 
 
+# 2-dimensions example distances
 reading_level_distances <- philentropy::distance(reading_level, method='euclidean', mute.message=TRUE)
 
-reading_level_full <- reviews_full %>% select(syllables, sentence_len) 
+# prepare function word Manhattan (full reviews)
+function_words <- reviews_full %>% select(starts_with("FW_")) 
 
-reading_level_distances_full <- philentropy::distance(reading_level_full, method='euclidean', mute.message=TRUE)
+# function word Manhattan distance 
+fw_distances <- philentropy::distance(function_words, method='manhattan', mute.message=TRUE)
 
-# function word Manhattan 
-# adjs cosine
-# content word cosine
+# prepare content word cosine similarity
+content_words <- reviews_full %>% select(starts_with("CW_")) 
+
+# make distance matrix
+cw_distances <- philentropy::distance(content_words, method='cosine', mute.message=TRUE)
+
+
+# prepare adjs cosine similarity
+adjectives <- reviews_full %>% select(starts_with("CW_ADJ_")) 
+
+# make distance matrix
+adj_distances <- philentropy::distance(adjectives, method='cosine', mute.message=TRUE)
+
 ```
 
 ```{r}
-reading_level_distances[,1]
-```
-```{r}
-review_meta
+# print excerpt results
+excerpt_meta_minimal <-excerpt_meta %>% select(periodical_title, review_author, reviewed_book_title, reviewed_book_author, review_pub_date )
+
+excerpt_meta_minimal$distance_to_root <- reading_level_distances[,1]
+kable(excerpt_meta_minimal)
 ```
 
-```{r}
-review_meta$euclidean <- reading_level_distances_full[,5]
-review_meta
-```
 
 ```{r}
-# visualize 
-reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Candidate 1", "Candidate 2", "Candidate 3"))
+# visualize 2D (excerpts vs. full)
+
+reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Atlantic review of \'Breakfast of Champions\'", "Nora Sayre\'s review of \'The Queen Was in the Garbage\'", "Computer & Gaming World review of \'Sam & Max Hit the Road\'"))
+
 reading_level_plot_root <- reading_level_plot %>% filter(text == "Root Excerpt")
 reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Excerpt")
+
+root <- reading_level_plot_root[1,]
+c_1 <- reading_level_plot_candidates[1,]
 
 ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text)) + 
   geom_point() + 
   labs(title = "Book Review Similarity (Excerpts)\n", 
        x = "Average syllables per word", 
        y = "Average sentence length", 
-       color = "Excerpt\n") +
-  geom_point(aes(x=reading_level_plot_root$syllables, y=reading_level_plot_root$sentence_len), color='black', shape='*', size=10) + 
-    annotate("text", x=reading_level_plot_root$syllables, y=reading_level_plot_root$sentence_len + 1.95, label = "Root Excerpt", color = "black", size = 3.5, fontface = "bold") + 
-  xlim(0, 2) + 
+       color = "Excerpt\n",
+       caption = "Figure 1: Similarity comparison of Nora Sayre's review of \'Breakfast of Champions\' (Root Excerpt) \nto three other book review excerpts (Candidates 1-3)") +
+  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=10) + 
+  annotate("text", 
+           x=root$syllables, 
+           y=root$sentence_len + 0.85, 
+           label = "Root Excerpt", 
+           color = "black", 
+           size = 3.5, 
+           fontface = "bold") +
+  geom_segment(aes(x = c_1$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "orange", linetype = "solid", size = 0.5) +
+  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
+  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = c_1$syllables, yend = c_1$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
+  annotate("text", 
+           x = root$syllables - 0.027, 
+           y = c_1$sentence_len + 1, 
+           label = "Manhattan Distance", 
+           color = "blue", 
+           size = 3.5, 
+           fontface = "bold") +
+  annotate("text", 
+           x = root$syllables - 0.009, 
+           y = c_1$sentence_len + 9, 
+           label = "Euclidean Distance", 
+           color = "orange", 
+           size = 3.5, 
+           fontface = "bold") +
+  theme(plot.caption = element_text(hjust = 0))
+
+```
+```{r}
+# visualize 2D (excerpts vs. full)
+
+reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Atlantic review of \'Breakfast of Champions\'", "Nora Sayre\'s review of \'The Queen Was in the Garbage\'", "Computer & Gaming World review of \'Sam & Max Hit the Road\'"))
+
+reading_level_plot_root <- reading_level_plot %>% filter(text == "Root Excerpt")
+reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Excerpt")
+
+root <- reading_level_plot_root[1,]
+c_1 <- reading_level_plot_candidates[1,]
+
+ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text)) + 
+  geom_point() + 
+  labs(title = "Book Review Similarity (Excerpts)\n", 
+       x = "Average syllables per word", 
+       y = "Average sentence length", 
+       color = "Excerpt\n",
+       caption = "Figure 1: Similarity comparison of Nora Sayre's review of \'Breakfast of Champions\' (Root Excerpt) \nto three other book review excerpts (Candidates 1-3)") +
+  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=10) + 
+  annotate("text", 
+           x=root$syllables, 
+           y=root$sentence_len + 1.15, 
+           label = "Root Excerpt", 
+           color = "black", 
+           size = 3.5, 
+           fontface = "bold") +
+  geom_segment(aes(x = c_1$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "orange", linetype = "solid", size = 0.5) +
+  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
+  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = c_1$syllables, yend = c_1$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
+  annotate("text", 
+           x = root$syllables + 0.43, 
+           y = c_1$sentence_len + 1, 
+           label = "Manhattan Distance", 
+           color = "blue", 
+           size = 3.5, 
+           fontface = "bold") +
+  annotate("text", 
+           x = root$syllables + 0.44, 
+           y = c_1$sentence_len + 9, 
+           label = "Euclidean Distance", 
+           color = "orange", 
+           size = 3.5, 
+           fontface = "bold") +
+  theme(plot.caption = element_text(hjust = 0)) + 
+  xlim(0, 2.5) + 
   ylim(0, 40) +
   geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_root$syllables, yend = reading_level_plot_root$sentence_len), color = "black", linetype = "solid", size = 0.5) + 
   geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_candidates$syllables, yend = reading_level_plot_candidates$sentence_len,color = text),  linetype = "solid", size = 0.5)
-
 ```
 
 ```{r}
-# Define the vectors
-A <- c(3, 0)
-B <- c(3, 4)
+# make data frame of full review results 
+review_meta <- review_meta %>% mutate(short_name = str_replace_all(review_file_path, "book-reviews/txt/", "")) %>%
+  mutate(short_name = str_replace_all(short_name , ".txt", "")) %>%
+  mutate(short_name = str_replace_all(short_name , "-", " "))
 
-M <- rbind(A, B)
+# display fewer columns
+review_meta_minimal <-review_meta %>% select(periodical_title, review_author, reviewed_book_title, review_pub_date )
 
-# Calculate dot product
-dot_product <- sum(A * B)
-
-# Calculate magnitudes
-magnitude_A <- sqrt(sum(A^2))
-magnitude_B <- sqrt(sum(B^2))
-
-# Calculate cosine similarity
-cosine_similarity <- dot_product / (magnitude_A * magnitude_B)
-
-print(cosine_similarity)
-print(philentropy::distance(M, method='cosine'))
-
-
-
-
-# visualize 
-#ggplot(train_test, aes(x=a, y=b, color=c)) + 
-#  geom_point() + 
-#  labs(title = "Identifying time travel movie fans\n", 
-#       x = "Used the word 'paradox' X times", 
-#       y = "Number of math classes taken in college", 
-#       color = "Likes time travel movies\n")
-
+review_meta_minimal$fw_manhattan <- fw_distances[,5]
+review_meta_minimal$cw_cos <- round(1 - cw_distances[,5], digits = 2)
+review_meta_minimal$adj_cos <- round(1 - adj_distances[,5], digits = 2)
+kable(review_meta_minimal)
 ```
-
-
 

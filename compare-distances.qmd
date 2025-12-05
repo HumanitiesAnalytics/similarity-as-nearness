@@ -8,8 +8,8 @@ format:
     code-summary: "Click to View Source Code"
     self-contained: true
 execute:
-  fig-width: 8
-  fig-height: 5
+  fig-width: 10
+  fig-height: 7
 page-layout: full
 toc: true
 ---
@@ -20,13 +20,37 @@ library(philentropy)
 ```
 
 ```{r}
+review_meta <- read_csv('review_metadata.csv')
+
 excerpts_full <- read_csv('book-reviews/csv/excerpt_review_features.csv')
 excerpts_no_hapax <- read_csv('book-reviews/csv/excerpt_review_features_no_hapax.csv')
 
+reviews_full <- read_csv('book-reviews/csv/review_features.csv')
+reviews_no_hapax <- read_csv('book-reviews/csv/review_features_no_hapax.csv')
+
 reading_level <- excerpts_full %>% select(syllables, sentence_len) 
 
+reading_level_distances <- philentropy::distance(reading_level, method='euclidean', mute.message=TRUE)
 
-reading_level_distances <- philentropy::distance(reading_level, method='euclidean')
+reading_level_full <- reviews_full %>% select(syllables, sentence_len) 
+
+reading_level_distances_full <- philentropy::distance(reading_level_full, method='euclidean', mute.message=TRUE)
+
+# function word Manhattan 
+# adjs cosine
+# content word cosine
+```
+
+```{r}
+reading_level_distances[,1]
+```
+```{r}
+review_meta
+```
+
+```{r}
+review_meta$euclidean <- reading_level_distances_full[,5]
+review_meta
 ```
 
 ```{r}
@@ -42,7 +66,11 @@ ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=tex
        y = "Average sentence length", 
        color = "Excerpt\n") +
   geom_point(aes(x=reading_level_plot_root$syllables, y=reading_level_plot_root$sentence_len), color='black', shape='*', size=10) + 
-    annotate("text", x=reading_level_plot_root$syllables + 0.02, y=reading_level_plot_root$sentence_len, label = "Root Excerpt", color = "black", size = 3.5, fontface = "bold")
+    annotate("text", x=reading_level_plot_root$syllables, y=reading_level_plot_root$sentence_len + 1.95, label = "Root Excerpt", color = "black", size = 3.5, fontface = "bold") + 
+  xlim(0, 2) + 
+  ylim(0, 40) +
+  geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_root$syllables, yend = reading_level_plot_root$sentence_len), color = "black", linetype = "solid", size = 0.5) + 
+  geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_candidates$syllables, yend = reading_level_plot_candidates$sentence_len,color = text),  linetype = "solid", size = 0.5)
 
 ```
 
@@ -79,65 +107,5 @@ print(philentropy::distance(M, method='cosine'))
 
 ```
 
-## Leave-One-Out Classification with KNN 
 
-```{r loocv}
-
-loocv_data <- train_test %>% select(a,b)
-loocv_labels <- train_test %>% pull(c)
-
-# LOOCV cross-validation 
-k_value <- 5
-knn_predictions <- knn.cv(train = loocv_data,
-                          cl = loocv_labels,
-                          k = k_value, 
-                          use.all= TRUE)
-
-results <- data.frame(predicted=knn_predictions, actual=loocv_labels)
-results <- results %>% mutate(correct=predicted==actual) %>% 
-  mutate(correct=as.integer(correct))
-
-loo_accuracy <- sum(results$correct)/ length(results$correct)
-print(loo_accuracy)
-```
-
-## Train a Model, Test on Disputed  
-
-```{r disputed}
-
-
-
-
-# test on novel data 
-one_row <- data.frame(a=c(11), b=c(16))
-
-knn_predictions_one_row <- knn(train = loocv_data,
-                       test = one_row,
-                          cl = loocv_labels,
-                          k = k_value)
-print(knn_predictions_one_row)
-```
-
-## Train model on training set data, predict label for test set data
-
-```{r train_test} 
-
-# split into training and test set 
-train <- head(train_test, 65) %>% select(a, b)
-test <- tail(train_test, 15) %>% select(a, b)
-
-train_labels <- head(train_test, 65) %>% select(c) %>% rename(actual=c) %>% mutate(actual=factor(actual)) %>% pull(actual)
-test_labels <- tail(train_test, 15) %>% select(c) %>% rename(actual=c) %>% mutate(actual=factor(actual)) %>% pull(actual)
-
-k_value <-5
-knn_predictions <- knn(train = train,
-                       test = test,
-                       cl = train_labels,
-                       k = k_value)
-
-results <- data.frame(predicted=knn_predictions, actual=test_labels)
-results <- results %>% mutate(correct=predicted==actual) %>% mutate(correct=as.integer(correct))
-
-print(sum(results$correct)/ length(results$correct))
-```
 

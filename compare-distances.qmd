@@ -18,12 +18,18 @@ page-layout: full
 toc: true
 ---
 
+## Instructions
+
+1. Try Rendering the Quarto document to HTML to make sure sure everything works. 
+2. Run each code chunk individually and look at the results. 
+3. Use various tools (`?` in RStudio generative AI, online resources, etc.) to investigate the questions. below. Take written or typed notes as you go.
+4. After a few minutes, the professor will signal you to discuss all items with a classmate.
+5. Lastly, we will discuss everything as a class.
+
 ```{r}
 library(tidyverse)
 library(philentropy)
 library(stringr)
-library(igraph)
-library(ggraph)
 library(knitr)
 
 set.seed(1122)
@@ -84,9 +90,13 @@ kable(excerpt_meta_minimal)
 
 
 ```{r}
-# visualize 2D (excerpts vs. full)
+# visualize 2D
 
-reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Atlantic review of \'Breakfast of Champions\'", "Nora Sayre\'s review of \'The Queen Was in the Garbage\'", "Computer & Gaming World review of \'Sam & Max Hit the Road\'"))
+labels <- c("Root Excerpt", "Atlantic review of \n\'Breakfast of Champions\'\n(Candidate 1)\n", "Nora Sayre\'s review of \n\'The Queen Was in the Garbage\'\n(Candidate 2)\n", "Computer & Gaming World review of \n\'Sam & Max Hit the Road\'\n(Candidate 3)\n")
+
+reading_level_plot <- reading_level %>% 
+  mutate(text = labels) %>% 
+  mutate(text = factor(text, levels = text, ordered = TRUE))
 
 reading_level_plot_root <- reading_level_plot %>% filter(text == "Root Excerpt")
 reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Excerpt")
@@ -94,87 +104,67 @@ reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Exc
 root <- reading_level_plot_root[1,]
 c_1 <- reading_level_plot_candidates[1,]
 
-ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text)) + 
-  geom_point() + 
+ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text, shape=text)) + 
+  geom_point(size = 3.5,) + 
   labs(title = "Book Review Similarity (Excerpts)\n", 
        x = "Average syllables per word", 
        y = "Average sentence length", 
        color = "Excerpt\n",
+       shape = "Excerpt\n",
        caption = "Figure 1: Similarity comparison of Nora Sayre's review of \'Breakfast of Champions\' (Root Excerpt) \nto three other book review excerpts (Candidates 1-3)") +
-  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=10) + 
+  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=14) + 
   annotate("text", 
            x=root$syllables, 
            y=root$sentence_len + 0.85, 
            label = "Root Excerpt", 
            color = "black", 
-           size = 3.5, 
+           size = 5.5, 
            fontface = "bold") +
+  scale_color_brewer(palette = "Dark2") +
   geom_segment(aes(x = c_1$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "orange", linetype = "solid", size = 0.5) +
   geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
   geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = c_1$syllables, yend = c_1$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
   annotate("text", 
-           x = root$syllables - 0.027, 
+           x = root$syllables - 0.042, 
            y = c_1$sentence_len + 1, 
            label = "Manhattan Distance", 
            color = "blue", 
-           size = 3.5, 
+           size = 5.5, 
            fontface = "bold") +
   annotate("text", 
-           x = root$syllables - 0.009, 
+           x = root$syllables - 0.023, 
            y = c_1$sentence_len + 9, 
            label = "Euclidean Distance", 
            color = "orange", 
-           size = 3.5, 
+           size = 5.5, 
            fontface = "bold") +
-  theme(plot.caption = element_text(hjust = 0))
+  theme(plot.title = element_text(size = 18), plot.caption = element_text(hjust = 0), legend.text = element_text(size = 14),  legend.title = element_text(size = 18))
 
 ```
 ```{r}
-# visualize 2D (excerpts vs. full)
 
-reading_level_plot <- reading_level %>% mutate(text = c("Root Excerpt", "Atlantic review of \'Breakfast of Champions\'", "Nora Sayre\'s review of \'The Queen Was in the Garbage\'", "Computer & Gaming World review of \'Sam & Max Hit the Road\'"))
+# visualize 2D (cosine vectors)
 
-reading_level_plot_root <- reading_level_plot %>% filter(text == "Root Excerpt")
-reading_level_plot_candidates <- reading_level_plot %>% filter(text != "Root Excerpt")
-
-root <- reading_level_plot_root[1,]
-c_1 <- reading_level_plot_candidates[1,]
-
-ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text)) + 
-  geom_point() + 
-  labs(title = "Book Review Similarity (Excerpts)\n", 
+ggplot(reading_level_plot_candidates, aes(x=syllables, y=sentence_len, color=text, shape=text)) + 
+  geom_point(size=3.5) + 
+  labs(title = "Book Review Cosine Similarity (Excerpts)\n", 
        x = "Average syllables per word", 
        y = "Average sentence length", 
        color = "Excerpt\n",
-       caption = "Figure 1: Similarity comparison of Nora Sayre's review of \'Breakfast of Champions\' (Root Excerpt) \nto three other book review excerpts (Candidates 1-3)") +
-  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=10) + 
+       shape = "Excerpt\n",
+       caption = "Figure 2: Similarity comparison of Nora Sayre's review of \'Breakfast of Champions\' (Root Excerpt) \nto three other book review excerpts (Candidates 1-3), this time visualizing similarity as directional vectors") +
+  geom_point(aes(x=root$syllables, y=root$sentence_len), color='black', shape='*', size=12) + 
   annotate("text", 
            x=root$syllables, 
-           y=root$sentence_len + 1.15, 
+           y=root$sentence_len + 2, 
            label = "Root Excerpt", 
            color = "black", 
-           size = 3.5, 
+           size = 5.5, 
            fontface = "bold") +
-  geom_segment(aes(x = c_1$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "orange", linetype = "solid", size = 0.5) +
-  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = root$syllables, yend = root$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
-  geom_segment(aes(x = root$syllables, y = c_1$sentence_len, xend = c_1$syllables, yend = c_1$sentence_len), color = "blue", linetype = "dotted", size = 0.5) +
-  annotate("text", 
-           x = root$syllables + 0.43, 
-           y = c_1$sentence_len + 1, 
-           label = "Manhattan Distance", 
-           color = "blue", 
-           size = 3.5, 
-           fontface = "bold") +
-  annotate("text", 
-           x = root$syllables + 0.44, 
-           y = c_1$sentence_len + 9, 
-           label = "Euclidean Distance", 
-           color = "orange", 
-           size = 3.5, 
-           fontface = "bold") +
-  theme(plot.caption = element_text(hjust = 0)) + 
-  xlim(0, 2.5) + 
+  theme(plot.title = element_text(size = 18), plot.caption = element_text(hjust = 0), legend.text = element_text(size = 14),  legend.title = element_text(size = 18)) +
+  xlim(0, 2.1) + 
   ylim(0, 40) +
+  scale_color_brewer(palette = "Dark2") +
   geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_root$syllables, yend = reading_level_plot_root$sentence_len), color = "black", linetype = "solid", size = 0.5) + 
   geom_segment(aes(x = 0, y = 0, xend = reading_level_plot_candidates$syllables, yend = reading_level_plot_candidates$sentence_len,color = text),  linetype = "solid", size = 0.5)
 ```
@@ -193,4 +183,11 @@ review_meta_minimal$cw_cos <- round(1 - cw_distances[,5], digits = 2)
 review_meta_minimal$adj_cos <- round(1 - adj_distances[,5], digits = 2)
 kable(review_meta_minimal)
 ```
+
+## Questions for Discussion (Take Some Notes)
+
+1. How is `philentropy::distance` being used on lines 60 and 79? What is the output when this function is run?  
+2. How are results being visualized using the `ggplot()` function? Why do the results look so different when you render to HTML? 
+3. Take a look at the variables `reviews_full` and `excerpts_full`. How well do the excerpts seem to represent the reviews they are taken from? 
+4. Take a look at the variables `reviews_no_hapax` and `excerpts_no_hapax`. What do these variables represent? 
 
